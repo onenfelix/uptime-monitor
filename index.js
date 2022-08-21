@@ -1,8 +1,34 @@
 var http = require("http");
+var https = require("https");
 var url = require("url");
 var StringDecorder = require("string_decoder").StringDecoder;
+var fs = require("fs");
+var config = require("./config");
 
-var server = http.createServer(function (req, res) {
+var httpServer = http.createServer(function (req, res) {
+  unifiedServer(req, res);
+});
+
+//instanciate the https server
+
+var httpsServerOptions = {
+  key: fs.readFileSync("./https/key.pem"),
+  cert: fs.readFileSync("./https/cert.pem"),
+};
+
+var httpsServer = https.createServer(httpsServerOptions, function (req, res) {
+  unifiedServer(req, res);
+});
+
+httpServer.listen(config.httpPort, function () {
+  console.log("The server is listening on port " + config.httpPort);
+});
+
+httpsServer.listen(config.httpsPort, function () {
+  console.log("The server is listening on port " + config.httpsPort);
+});
+
+var unifiedServer = function (req, res) {
   //Get the url and parse it
   var parsedUrl = url.parse(req.url, true);
   //Get the path
@@ -30,30 +56,26 @@ var server = http.createServer(function (req, res) {
         : handlers.notFound;
 
     var data = {
-      "trimmedPath": trimmedPath,
-      "queryStringObject": queryStringObject,
-      "method": method,
-      "headers": headers,
-      "payload": buffer
-    }
+      trimmedPath: trimmedPath,
+      queryStringObject: queryStringObject,
+      method: method,
+      headers: headers,
+      payload: buffer,
+    };
 
-    chosenHandler(data, function(statusCode, payload) {
-      statusCode = typeof(statusCode) == 'number' ? statusCode : 200;
-      payload = typeof(payload) == "object" ? payload : {};
+    chosenHandler(data, function (statusCode, payload) {
+      statusCode = typeof statusCode == "number" ? statusCode : 200;
+      payload = typeof payload == "object" ? payload : {};
 
       var payloadString = JSON.stringify(payload);
 
-      res.setHeader("Content-Type","application/json");
+      res.setHeader("Content-Type", "application/json");
       res.writeHead(statusCode);
       res.end(payloadString);
       console.log("Returning this response:", statusCode, payloadString);
-    })
+    });
   });
-});
-
-server.listen(3000, function () {
-  console.log("The server is listening on port 3000 now");
-});
+};
 
 var handlers = {};
 
@@ -66,5 +88,5 @@ handlers.notFound = function (data, callback) {
 };
 
 var router = {
-  "sample": handlers.sample,
+  sample: handlers.sample,
 };
